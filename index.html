@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>待辦事項提醒</title>
+<link rel="icon" type="image/png" href="./icon.png">
+<link rel="apple-touch-icon" href="./icon.png">
+<link rel="apple-touch-icon" sizes="180x180" href="./icon.png">
+
+<style>
+:root{
+  --bg-sky: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' preserveAspectRatio='xMidYMid slice' width='1200' height='800'><defs><linearGradient id='g' x1='0' x2='0' y1='0' y2='1'><stop offset='0' stop-color='%23BEE6FF'/><stop offset='1' stop-color='%23EAF6FF'/></linearGradient></defs><rect width='100%' height='100%' fill='url(%23g)'/><g opacity='0.28' transform='translate(0,40)'><ellipse cx='180' cy='120' rx='220' ry='60' fill='%23FFFFFF'/><ellipse cx='620' cy='60' rx='260' ry='70' fill='%23FFFFFF'/><ellipse cx='980' cy='140' rx='200' ry='50' fill='%23FFFFFF'/></g></svg>");
+  --card-bg: rgba(255,255,255,0.9);
+  --glass: rgba(255,255,255,0.6);
+  --text: #083045;
+  --muted: #4a6a7a;
+  --high: #e03b3b;
+  --medium: #e08a2b;
+  --low: #6b7c93;
+  --accent: #2a9df4;
+  --radius: 14px;
+  --gap: 12px;
+  --line-height: 1.7;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans TC", "Microsoft JhengHei", "PingFang TC", system-ui, sans-serif;
+  color:var(--text);
+}
+html,body{height:100%;margin:0;padding:0;overflow-x:hidden;background-color:#eaf6ff;}
+body{
+  background-image: var(--bg-sky);
+  background-size: cover;
+  background-position: center top;
+  padding:20px;
+  box-sizing:border-box;
+  line-height:var(--line-height);
+}
+
+/* Container */
+.app{max-width:980px;margin:0 auto;display:flex;flex-direction:column;gap:16px;}
+.header{display:flex;align-items:center;gap:12px;}
+.logo{width:52px;height:52px;border-radius:12px;background:linear-gradient(135deg,var(--accent),#7bd6ff);display:flex;align-items:center;justify-content:center;box-shadow:0 6px 18px rgba(10,40,60,0.12);color:white;font-weight:700;font-size:20px;}
+.hgroup{display:flex;flex-direction:column;}
+.hgroup h1{margin:0;font-size:18px;}
+.hgroup p{margin:0;font-size:13px;color:var(--muted);}
+.lists{display:grid;grid-template-columns:1fr;gap:12px;}
+.section{background:linear-gradient(180deg, rgba(255,255,255,0.98), rgba(255,255,255,0.92));border-radius:var(--radius);padding:12px;box-shadow:0 8px 24px rgba(10,40,60,0.06);}
+.section h2{margin:0 0 8px 0;font-size:16px;display:flex;align-items:center;gap:8px;}
+.section .empty{padding:18px;background:transparent;color:var(--muted);border-radius:10px;text-align:center;font-weight:600;}
+.task{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px;border-radius:12px;margin-bottom:8px;transition:transform .12s ease;border:1px solid rgba(8,48,69,0.04);}
+.task:last-child{margin-bottom:0;}
+.task:hover{transform:translateY(-4px);box-shadow:0 10px 30px rgba(8,48,69,0.06);}
+.left{display:flex;align-items:center;gap:10px;min-width:0;}
+.icon{width:46px;height:46px;border-radius:10px;background:linear-gradient(180deg, rgba(255,255,255,0.7), rgba(255,255,255,0.5));display:flex;align-items:center;justify-content:center;font-weight:700;font-size:18px;color:var(--accent);flex-shrink:0;}
+.meta{display:flex;flex-direction:column;min-width:0;}
+.meta .date{font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.meta .title{font-size:15px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.meta .title.low{font-weight:600;color:var(--low);}
+.meta .title.medium{color:var(--medium);}
+.meta .title.high{color:var(--high);}
+.right{display:flex;align-items:center;gap:8px;}
+.icon-btn{width:36px;height:36px;border-radius:10px;border:1px solid rgba(8,48,69,0.06);display:inline-flex;align-items:center;justify-content:center;background:transparent;cursor:pointer;}
+.desc-popup{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:1200;width:90%;max-width:520px;background:white;border-radius:14px;padding:12px;box-shadow:0 30px 60px rgba(8,48,69,0.18);}
+.desc-popup .body{color:var(--muted);margin:8px 0;}
+.desc-popup .actions{display:flex;justify-content:flex-end;gap:8px;margin-top:10px;}
+.overlay{position:fixed;inset:0;background:rgba(6,24,40,0.36);z-index:1100;}
+.toast{position:fixed;right:18px;bottom:18px;background:rgba(0,0,0,0.75);color:white;padding:10px 14px;border-radius:10px;font-size:14px;z-index:1300;}
+@media(min-width:780px){.lists{grid-template-columns:1fr 1fr;}}
+:focus{outline:3px solid rgba(42,157,244,0.18);outline-offset:2px;}
+</style>
+</head>
+<body>
+<main class="app" id="app">
+  <header class="header" role="banner" aria-label="待辦提醒器頁首">
+    <div class="logo" aria-hidden="true">☁️</div>
+    <div class="hgroup">
+      <h1>待辦事項提醒器</h1>
+    </div>
+  </header>
+  <section class="lists" aria-live="polite" id="lists">
+    <div class="section" id="todaySection" aria-label="今日任務">
+      <h2>📅 今日任務</h2>
+      <div id="todayList" role="list"></div>
+    </div>
+    <div class="section" id="upcomingSection" aria-label="即將到來">
+      <h2>⏳ 即將到來</h2>
+      <div id="upcomingList" role="list"></div>
+    </div>
+  </section>
+  <div id="popupRoot"></div>
+  <div id="toastRoot" aria-live="polite" aria-atomic="true"></div>
+</main>
+
+<script>
+/* ---------- 指定的 Google 試算表 CSV URL ---------- */
+const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTLLS08i6iIi4tYeTED2PtOO2lGeueGX55IljiKZw4yj0faDKelptSK3R1I7FHVIdK1SAn8rK5opCrl/pub?output=csv';
+
+/* ---------- util functions ---------- */
+function parseCSV(text){
+  text = text.replace(/\r\n/g,'\n').replace(/\r/g,'\n').trim();
+  if(!text) return [];
+  const lines = text.split('\n');
+  const headers = lines[0].split(',').map(h=>h.trim());
+  const rows = [];
+  for(let i=1;i<lines.length;i++){
+    if(!lines[i].trim()) continue;
+    const cols = lines[i].split(',').map(c=>c.trim());
+    const obj={};
+    headers.forEach((h,j)=>obj[h]=cols[j]||'');
+    rows.push(obj);
+  }
+  return rows;
+}
+function parseDateLocal(s){ if(!s) return null; const parts=s.split('-'); if(parts.length===3){ return new Date(parts[0],parts[1]-1,parts[2]); } const d=new Date(s); return isNaN(d)?null:d;}
+function fmtDate(d){ return d?`${d.getFullYear()}-${('0'+(d.getMonth()+1)).slice(-2)}-${('0'+d.getDate()).slice(-2)}`:'';}
+function importanceRank(level){ if(!level) return 0; const v=level.toString().trim().toLowerCase(); if(v==='高') return 3; if(v==='中') return 2; return 1;}
+function typeIcon(type){ if(!type) return '📝'; const t=type.toLowerCase(); if(t.includes('工')) return '💼'; if(t.includes('個')) return '🏠'; if(t.includes('健')) return '💪'; if(t.includes('社')) return '🍽️'; return '📝';}
+function importanceClass(level){ const r=importanceRank(level); return r>=3?'high':r===2?'medium':'low';}
+
+/* ---------- core ---------- */
+const todayListEl=document.getElementById('todayList');
+const upcomingListEl=document.getElementById('upcomingList');
+const popupRoot=document.getElementById('popupRoot');
+const toastRoot=document.getElementById('toastRoot');
+let DATA=[];
+
+function normalizeRows(rows){
+  return rows.map(r=>{
+    const start=parseDateLocal(r['起始日期']);
+    const end=parseDateLocal(r['結束日期']) || start;
+    const remindDays=parseInt(r['提醒日']||'0',10)||0;
+    return { start,end,title:r['項目']||'未命名',remindDays,type:r['類型']||'',importance:r['重要度']||'',desc:r['說明']||'' };
+  });
+}
+
+function sortItems(arr){return arr.slice().sort((a,b)=>{const ia=importanceRank(a.importance);const ib=importanceRank(b.importance);if(ia!==ib)return ib-ia;return a.end.getTime()-b.end.getTime();});}
+
+function renderTaskNode(item){
+  const wrapper=document.createElement('div'); wrapper.className='task'; wrapper.tabIndex=0;
+  const left=document.createElement('div'); left.className='left';
+  const ic=document.createElement('div'); ic.className='icon'; ic.innerText=typeIcon(item.type);
+  const meta=document.createElement('div'); meta.className='meta';
+  const date=document.createElement('div'); date.className='date';
+  date.textContent=item.end.getTime()!==item.start.getTime()?`${fmtDate(item.start)} ～ ${fmtDate(item.end)}`:fmtDate(item.start);
+  const title=document.createElement('div'); title.className='title '+importanceClass(item.importance); title.textContent=item.title;
+  meta.appendChild(date); meta.appendChild(title); left.appendChild(ic); left.appendChild(meta);
+  const right=document.createElement('div'); right.className='right';
+  if(item.desc){ const btn=document.createElement('button'); btn.className='icon-btn'; btn.innerText='🛈'; btn.title='查看說明'; btn.addEventListener('click',e=>{e.stopPropagation(); showDescription(item);}); right.appendChild(btn);}
+  const cbtn=document.createElement('button'); cbtn.className='icon-btn'; cbtn.innerText='✅'; cbtn.title='標記完成'; cbtn.addEventListener('click',e=>{e.stopPropagation(); confirmComplete(item);});
+  right.appendChild(cbtn);
+  wrapper.appendChild(left); wrapper.appendChild(right);
+  wrapper.addEventListener('click',()=>confirmComplete(item));
+  return wrapper;
+}
+
+function showDescription(item){
+  popupRoot.innerHTML='';
+  const overlay=document.createElement('div'); overlay.className='overlay';
+  const box=document.createElement('div'); box.className='desc-popup';
+  const title=document.createElement('div'); title.style.fontWeight='700'; title.textContent=item.title;
+  const body=document.createElement('div'); body.className='body'; body.textContent=item.desc;
+  const actions=document.createElement('div'); actions.className='actions';
+  const close=document.createElement('button'); close.className='btn small'; close.textContent='關閉'; close.addEventListener('click',()=>popupRoot.innerHTML='');
+  actions.appendChild(close); box.appendChild(title); box.appendChild(body); box.appendChild(actions);
+  popupRoot.appendChild(overlay); popupRoot.appendChild(box);
+  overlay.addEventListener('click',()=>popupRoot.innerHTML='');
+}
+
+function confirmComplete(item){
+  popupRoot.innerHTML='';
+  const overlay=document.createElement('div'); overlay.className='overlay';
+  const box=document.createElement('div'); box.className='desc-popup';
+  const title=document.createElement('div'); title.style.fontWeight='800'; title.textContent='待辦是否已完成？';
+  const info=document.createElement('div'); info.className='body'; info.textContent=item.title;
+  const actions=document.createElement('div'); actions.className='actions';
+  const noBtn=document.createElement('button'); noBtn.className='icon-btn'; noBtn.textContent='否'; noBtn.addEventListener('click',()=>popupRoot.innerHTML='');
+  const yesBtn=document.createElement('button'); yesBtn.className='btn small'; yesBtn.textContent='是'; yesBtn.addEventListener('click',()=>{item.completedOn=new Date(); popupRoot.innerHTML=''; showToast('已標記完成（本地）'); renderAll();});
+  actions.appendChild(noBtn); actions.appendChild(yesBtn); box.appendChild(title); box.appendChild(info); box.appendChild(actions);
+  popupRoot.appendChild(overlay); popupRoot.appendChild(box); overlay.addEventListener('click',()=>popupRoot.innerHTML='');
+}
+
+function renderAll(){
+  todayListEl.innerHTML=''; upcomingListEl.innerHTML='';
+  const today=new Date(); today.setHours(0,0,0,0);
+  const active=DATA.filter(d=>!d.completedOn);
+  const todays=active.filter(it=>it.start<=today && it.end>=today);
+  const upcoming=active.filter(it=>{ const remStart=new Date(it.start); remStart.setDate(remStart.getDate()-it.remindDays); return remStart<=today && it.start>today;});
+  const sortedToday=sortItems(todays); const sortedUpcoming=sortItems(upcoming);
+  if(sortedToday.length===0) todayListEl.innerHTML=`<div class="empty">恭喜！！今日無任務！！</div>`; else sortedToday.forEach(it=>todayListEl.appendChild(renderTaskNode(it)));
+  if(sortedUpcoming.length===0) upcomingListEl.innerHTML=`<div class="empty">恭喜！！近期無新任務！！</div>`; else sortedUpcoming.forEach(it=>upcomingListEl.appendChild(renderTaskNode(it)));
+}
+
+function showToast(msg, ttl=3000){ toastRoot.innerHTML=''; const d=document.createElement('div'); d.className='toast'; d.textContent=msg; toastRoot.appendChild(d); setTimeout(()=>{toastRoot.innerHTML='';},ttl);}
+
+/* ---------- init ---------- */
+document.addEventListener('DOMContentLoaded',()=>{
+  fetch(SHEET_CSV_URL)
+    .then(r=>r.text())
+    .then(txt=>{
+      const rows=parseCSV(txt);
+      DATA=normalizeRows(rows);
+      renderAll();
+      showToast('已載入 Google 試算表資料');
+    })
+    .catch(err=>{
+      console.error(err);
+      showToast('資料載入失敗，請檢查 CSV URL 是否正確');
+    });
+});
+</script>
+</body>
+</html>
